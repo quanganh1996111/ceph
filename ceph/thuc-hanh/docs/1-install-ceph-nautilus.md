@@ -224,3 +224,50 @@ ceph-deploy mgr create ceph01
 
 ![](../images/ceph-nautilus/Screenshot_6.png)
 
+- Kiểm tra lại:
+
+```
+ceph -s
+```
+
+![](../images/ceph-nautilus/Screenshot_7.png)
+
+## 6. Khởi tạo OSD
+
+### Tạo OSD thông qua ceph-deploy tại host ceph01
+
+- Trên `ceph01`, dùng c`eph-deploy` để partition ổ cứng OSD, thay `ceph01` bằng hostname của host chứa OSD.
+
+```
+ceph-deploy disk zap ceph01 /dev/vdb
+```
+
+![](../images/ceph-nautilus/Screenshot_8.png)
+
+- Tạo OSD với `ceph-deploy`
+
+```
+ceph-deploy osd create --data /dev/vdb ceph01
+```
+
+- Kiểm tra osd vừa tạo bằng lệnh:
+
+```
+ceph osd tree
+```
+
+![](../images/ceph-nautilus/Screenshot_9.png)
+
+![](../images/ceph-nautilus/Screenshot_10.png)
+
+### Thực hiện tương tự cho các OSD còn lại ở node ceph01, ceph02, ceph03.
+
+Sau khi hoàn thành việc cài đặt trên tất cả các Disks (trừ disk cài OS) trên 3 node. Kiểm tra lại:
+
+![](../images/ceph-nautilus/Screenshot_11.png)
+
+![](../images/ceph-nautilus/Screenshot_12.png)
+
+![](../images/ceph-nautilus/Screenshot_13.png)
+
+![](../images/ceph-nautilus/Screenshot_14.png)
