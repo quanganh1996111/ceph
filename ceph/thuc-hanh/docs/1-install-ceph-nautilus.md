@@ -180,7 +180,8 @@ ceph-deploy install --release nautilus ceph01 ceph02 ceph03
 **Kiểm tra sau khi cài đặt**
 
 ```
-ceph -v 
+ceph -v
+ceph version 14.2.22 (ca74598065096e6fcbd8433c8779a2be0c889351) nautilus (stable)
 ```
 
 ### Khởi tạo cluster với các node mon (Monitor-quản lý) dựa trên file ceph.conf
