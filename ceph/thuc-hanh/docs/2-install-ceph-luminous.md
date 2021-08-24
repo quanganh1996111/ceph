@@ -251,6 +251,15 @@ Do khởi tạo từ các VM lab trước đó trong bài Nautilus. Nên các Di
 
 ```
 lsblk
+
+NAME   MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+vda    253:0    0  20G  0 disk
+├─vda1 253:1    0   1G  0 part /boot
+├─vda2 253:2    0   2G  0 part [SWAP]
+└─vda3 253:3    0  17G  0 part /
+vdb    253:16   0  50G  0 disk
+vdc    253:32   0  50G  0 disk
+vdd    253:48   0  50G  0 disk
 ```
 
 - Bước 2: Phân vùng lại các Disk bằng lệnh
