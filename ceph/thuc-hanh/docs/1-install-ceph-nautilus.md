@@ -278,36 +278,6 @@ ceph osd tree
 
 ![](../images/ceph-nautilus/Screenshot_15.png)
 
-#### Một số lưu ý
-
-Do khởi tạo từ các VM lab trước đó trong bài Nautilus. Nên các Disk cần format lại để tránh việc cài đặt lỗi. Nếu như khởi tạo VM mới và thêm Disk mới thì có thể bỏ qua các bước này.
-
-- Bước 1: Sử dụng lệnh `lsblk` để xác định các Disk
-
-```
-lsblk
-```
-
-- Bước 2: Phân vùng lại các Disk bằng lệnh
-
-```
-parted -s /dev/vdb mklabel gpt mkpart primary xfs 0% 100%
-```
-
-- Bước 3: Reboot lại node ceph
-
-```
-reboot
-```
-
-- Bước 4: Format lại Disk
-
-```
-mkfs.xfs /dev/vdb -f
-```
-
-**Lưu ý:** thay thế `/dev/vdb` với Disk tương ứng.
-
 ## Nguồn tham khảo
 
 https://github.com/uncelvel/tutorial-ceph/tree/master/docs/setup
