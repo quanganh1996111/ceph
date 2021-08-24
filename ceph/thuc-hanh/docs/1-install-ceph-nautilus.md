@@ -236,7 +236,7 @@ ceph -s
 
 ### Tạo OSD thông qua ceph-deploy tại host ceph01
 
-- Trên `ceph01`, dùng c`eph-deploy` để partition ổ cứng OSD, thay `ceph01` bằng hostname của host chứa OSD.
+- Trên `ceph01`, dùng `ceph-deploy` để partition ổ cứng OSD, thay `ceph01` bằng hostname của host chứa OSD.
 
 ```
 ceph-deploy disk zap ceph01 /dev/vdb
