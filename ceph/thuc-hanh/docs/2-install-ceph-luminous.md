@@ -178,3 +178,67 @@ yum -y install byobu
 ```
 ceph-deploy install --release luminous ceph01 ceph02 ceph03
 ```
+
+### Khởi tạo cluster với các node mon (Monitor-quản lý) dựa trên file ceph.conf
+
+```
+ceph-deploy mon create-initial
+```
+
+Sau khi thực hiện lệnh phía trên sẽ sinh thêm ra 05 file trong thư mục `ceph-deploy`
+
+- ceph.bootstrap-mds.keyring
+
+- ceph.bootstrap-mgr.keyring
+
+- ceph.bootstrap-osd.keyring
+
+- ceph.client.admin.keyring
+
+- ceph.bootstrap-rgw.keyring
+
+![](../images/ceph-nautilus/Screenshot_5.png)
+
+### Để node ceph01 có thể thao tác với cluster chúng ta cần gán cho node ceph01 với quyền admin bằng cách bổ sung cho node này admin.keying
+
+```
+ceph-deploy admin ceph01
+```
+
+![](../images/ceph-nautilus/Screenshot_16.png)
+
+## 5. Khởi tạo MGR
+
+`Ceph-mgr` là thành phần cài đặt cần khởi tạo từ bản `lumious`, có thể cài đặt trên nhiều node hoạt động theo cơ chế Active-Passive.
+
+### Cài đặt ceph-mgr trên ceph01
+
+```
+ceph-deploy mgr create ceph01
+```
+
+![](../images/ceph-nautilus/Screenshot_17.png)
+
+- Truy cập vào mgr dashboard với username và password vừa đặt ở phía trên để kiểm tra.
+
+```
+https://<ip-ceph01>:7000
+```
+
+![](../images/ceph-nautilus/Screenshot_18.png)
+
+## 6. Khởi tạo OSD
+
+### Tạo OSD thông qua ceph-deploy tại host ceph01
+
+Trên `ceph01`, dùng `ceph-deploy` để partition ổ cứng OSD, thay `ceph01` bằng hostname của host chứa OSD.
+
+```
+ceph-deploy disk zap ceph01 /dev/vdb
+```
+
+```
+ceph-deploy osd create --data /dev/vdb ceph01
+```
+
+**Cấu hình tương tự với các Disk (Không phải Disk cài OS) còn lại trên các node.
