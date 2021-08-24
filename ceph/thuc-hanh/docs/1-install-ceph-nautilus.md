@@ -50,9 +50,9 @@ sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
 
 ```
 cat << EOF >> /etc/hosts
-172.16.3.35 ceph01
-172.16.3.36 ceph02
-172.16.3.37 ceph03
+10.10.40.57 ceph01
+10.10.40.58 ceph02
+10.10.40.59 ceph03
 EOF
 ```
 
