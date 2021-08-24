@@ -202,3 +202,25 @@ Sau khi thực hiện lệnh phía trên sẽ sinh thêm ra 05 file trong thư m
 
 - ceph.bootstrap-rgw.keyring
 
+![](../images/ceph-nautilus/Screenshot_5.png)
+
+## 5. Khởi tạo MGR
+
+`Ceph-mgr` là thành phần cài đặt cần khởi tạo từ bản nautilus, có thể cài đặt trên nhiều node hoạt động theo cơ chế Active-Passive.
+
+### Cài đặt ceph-mgr trên ceph01
+
+- Copy thư file `/ceph-deploy/ceph.client.admin.keyring` sang thư mục `/etc/ceph/
+
+```
+cp /ceph-deploy/ceph.client.admin.keyring /etc/ceph/
+```
+
+- Tiến hành cài đặt `ceph-mgr`
+
+```
+ceph-deploy mgr create ceph01
+```
+
+![](../images/ceph-nautilus/Screenshot_6.png)
+
