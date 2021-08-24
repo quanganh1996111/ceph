@@ -85,7 +85,7 @@ init 6
 ### Cài đặt ceph-deploy
 
 ```
-yum install -y wget 
+yum install -y wget
 wget https://download.ceph.com/rpm-nautilus/el7/noarch/ceph-deploy-2.0.1-0.noarch.rpm --no-check-certificate
 rpm -ivh ceph-deploy-2.0.1-0.noarch.rpm
 ```
