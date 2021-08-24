@@ -59,13 +59,13 @@ EOF
 **Cài đặt NTPD**
 
 ```
-yum install chrony -y 
+yum install chrony -y
 ```
 
 ```
-systemctl start chronyd 
+systemctl start chronyd
 systemctl enable chronyd
-systemctl restart chronyd 
+systemctl restart chronyd
 ```
 
 Kiểm tra đồng bộ thời gian:
