@@ -245,7 +245,7 @@ ceph-deploy osd create --data /dev/vdb ceph01
 
 #### Một số lưu ý
 
-Do khởi tạo từ các VM lab trước đó trong bài Nautilus. Nên các Disk cần format lại để tránh việc cài đặt lỗi. Nếu như khởi tạo VM mới và thêm Disk mới thì có thể bỏ qua các bước này.
+Do khởi tạo từ các VM lab trước đó trong bài [Cài đặt Ceph Nautilus](https://github.com/quanganh1996111/ceph/blob/main/ceph/thuc-hanh/docs/1-install-ceph-nautilus.md). Nên các Disk cần format lại để tránh việc cài đặt lỗi. Nếu như khởi tạo VM mới và thêm Disk mới thì có thể bỏ qua các bước này.
 
 - Bước 1: Sử dụng lệnh `lsblk` để xác định các Disk
 
