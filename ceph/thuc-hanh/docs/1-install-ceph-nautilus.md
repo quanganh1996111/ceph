@@ -271,3 +271,15 @@ Sau khi hoàn thành việc cài đặt trên tất cả các Disks (trừ disk 
 ![](../images/ceph-nautilus/Screenshot_13.png)
 
 ![](../images/ceph-nautilus/Screenshot_14.png)
+
+```
+ceph osd tree
+```
+
+![](../images/ceph-nautilus/Screenshot_15.png)
+
+## Nguồn tham khảo
+
+https://github.com/uncelvel/tutorial-ceph/tree/master/docs/setup
+
+https://github.com/domanhduy/ghichep/blob/master/DuyDM/CEPH/thuc-hanh/docs/1.huong-dan-cai-dat-ceph-nautilus.md
