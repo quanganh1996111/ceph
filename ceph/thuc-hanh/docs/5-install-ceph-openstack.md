@@ -118,3 +118,98 @@ ceph-deploy --overwrite-conf config push ceph01 ceph02 ceph03
 ![](../images/ceph-openstack/Screenshot_5.png)
 
 ![](../images/ceph-openstack/Screenshot_6.png)
+
+- Khởi tạo ban đầu trước khi sử dụng pool
+
+```
+rbd pool init volumes
+rbd pool init vms
+rbd pool init images
+rbd pool init backup
+```
+
+- Copy cấu hình qua các node Controller, Compute của OpenStack
+
+```
+ssh 172.16.2.72 sudo tee /etc/ceph/ceph.conf < /etc/ceph/ceph.conf
+ssh 172.16.2.73 sudo tee /etc/ceph/ceph.conf < /etc/ceph/ceph.conf
+ssh 172.16.2.74 sudo tee /etc/ceph/ceph.conf < /etc/ceph/ceph.conf
+```
+
+## 4. Tích hợp CEPH làm backend cho glance - images
+
+#### Bước 1: Thực hiện trên node CEPH
+
+Ở trong CEPH key chính là một thành phần quan trọng dùng để xác thực, phân quyền cho một đối tượng sở hữu key đó với các service, pool trong CEPH.
+
+- Tạo key `glance`
+
+```
+ceph auth get-or-create client.glance mon 'allow r' osd 'allow class-read object_prefix rbd_children, allow rwx pool=images'
+```
+
+![](../images/ceph-openstack/Screenshot_7.png)
+
+Tạo key glance cho phép `read` các thông tin service `mon`, lấy đầy đủ thông tin về service `OSD`, phần quyền `read/write/excute` đối với pool có tên là `images`.
+
+- Chuyển key `glance` sang node `glance` (glance được cài đặt trên node Controller)
+
+```
+ceph auth get-or-create client.glance | ssh 172.16.2.72 sudo tee /etc/ceph/ceph.client.glance.keyring
+```
+
+![](../images/ceph-openstack/Screenshot_8.png)
+
+#### Bước 2: Thực hiện trên node Contoller
+
+- Set quyền cho các key vừa chuyển từ node CEPH sang.
+
+```
+sudo chown glance:glance /etc/ceph/ceph.client.glance.keyring
+sudo chmod 0640 /etc/ceph/ceph.client.glance.keyring
+```
+
+![](../images/ceph-openstack/Screenshot_9.png)
+
+#### Bước 3: Thêm, chỉnh sửa cấu hinh `/etc/glance/glance-api.conf` trên node Controller
+
+```
+[DEFAULT]
+show_image_direct_url = True
+
+[glance_store]
+show_image_direct_url = True
+default_store = rbd
+stores = file,http,rbd
+rbd_store_pool = images
+rbd_store_user = glance
+rbd_store_ceph_conf = /etc/ceph/ceph.conf
+rbd_store_chunk_size = 8
+```
+
+![](../images/ceph-openstack/Screenshot_10.png)
+
+![](../images/ceph-openstack/Screenshot_11.png)
+
+#### Bước 4: Restart lại dịch vụ glance trên node Controller
+
+```
+systemctl restart openstack-glance-*
+```
+
+#### Bước 5: Upload images và kiểm tra thực hiện trên node CTL
+
+- Đứng từ thư mục `/root`:
+
+```
+source admin-openrc
+```
+
+```
+wget http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img
+openstack image create "cirros-ceph" \
+--file cirros-0.3.4-x86_64-disk.img \
+--disk-format qcow2 --container-format bare \
+--public
+```
+
