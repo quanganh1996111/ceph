@@ -99,6 +99,20 @@ systemctl restart ceph-mon@ceph01
 systemctl restart ceph-mgr@ceph01
 ```
 
+**Sau mỗi lần chỉnh sửa config hoặc key chỉ cần đứng trong thực mục ceph-deploy copy đè config lên các node CEPH khác**
+
+- Copy đè key sang các node CEPH khác:
+
+```
+ceph-deploy --overwrite-conf admin ceph01 ceph02 ceph03
+```
+
+- Copy đè `config`
+
+```
+ceph-deploy --overwrite-conf config push ceph01 ceph02 ceph03
+```
+
 - Tiến hành khởi tạo lại các Pool như trên. Kết quả:
 
 ![](../images/ceph-openstack/Screenshot_5.png)
