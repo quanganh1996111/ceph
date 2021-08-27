@@ -579,3 +579,9 @@ images_rbd_ceph_conf = /etc/ceph/ceph.conf
 ```
 systemctl restart openstack-nova-compute
 ```
+
+## Nguồn tham khảo
+
+https://github.com/domanhduy/ghichep/blob/master/DuyDM/CEPH/thuc-hanh/docs/5.tich-hop-ceph-openstack.md
+
+https://github.com/uncelvel/tutorial-ceph/blob/master/docs/operating/ceph-vs-openstack.md
