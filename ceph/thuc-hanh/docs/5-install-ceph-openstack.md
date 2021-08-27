@@ -213,3 +213,369 @@ openstack image create "cirros-ceph" \
 --public
 ```
 
+![](../images/ceph-openstack/Screenshot_12.png)
+
+- Kiểm tra trên node CEPH:
+
+```
+rbd -p images ls
+```
+
+![](../images/ceph-openstack/Screenshot_13.png)
+
+![](../images/ceph-openstack/Screenshot_14.png)
+
+## 5. Tích hợp CEPH làm backend cho cinder-volume và cinder-backup
+
+#### Bước 1: Thực hiện trên node CEPH
+
+- Di chuyển vào thưc mục ceph-deploy
+
+```
+cd /ceph-deploy/
+```
+
+- Tạo key `cinder`
+
+```
+ceph auth get-or-create client.cinder mon 'allow r, allow command "osd blacklist", allow command "blacklistop"' osd 'allow class-read object_prefix rbd_children, allow rwx pool=volumes, allow rwx pool=images' > ceph.client.cinder.keyring
+```
+
+![](../images/ceph-openstack/Screenshot_15.png)
+
+- Tạo key `cinder-backup`
+
+```
+ceph auth get-or-create client.cinder-backup mon 'profile rbd' osd 'profile rbd pool=backup' > ceph.client.cinder-backup.keyring
+```
+
+![](../images/ceph-openstack/Screenshot_16.png)
+
+- Chuyển key `cinder` và key `cinder-backup` sang các node cài đặt Cinder (node Controller).
+
+```
+ceph auth get-or-create client.cinder | ssh 172.16.3.24 sudo tee /etc/ceph/ceph.client.cinder.keyring
+
+ceph auth get-or-create client.cinder-backup | ssh 172.16.3.24 sudo tee /etc/ceph/ceph.client.cinder-backup.keyring
+```
+
+![](../images/ceph-openstack/Screenshot_17.png)
+
+- Chuyển key `cinder` sang các node Compute
+
+```
+ceph auth get-or-create client.cinder | ssh 172.16.3.25 sudo tee /etc/ceph/ceph.client.cinder.keyring
+ceph auth get-or-create client.cinder | ssh 172.16.3.26 sudo tee /etc/ceph/ceph.client.cinder.keyring
+
+ceph auth get-key client.cinder | ssh 172.16.3.25 tee /root/client.cinder
+ceph auth get-key client.cinder | ssh 172.16.3.26 tee /root/client.cinder
+```
+
+![](../images/ceph-openstack/Screenshot_18.png)
+
+#### Bước 2: Thực hiện trên node CTL
+
+- Set quyền cho các key
+
+```
+sudo chown cinder:cinder /etc/ceph/ceph.client.cinder*
+sudo chmod 0640 /etc/ceph/ceph.client.cinder*
+```
+
+![](../images/ceph-openstack/Screenshot_19.png)
+
+#### Bước 3: Thao tác trên node Compute
+
+Khởi tạo 1 `uuid` mới cho cinder (UUID sử dụng chung cho các Compute nên chỉ cần tạo lần đầu tiên trên 1 node Compute sau đó sẽ copy sang các node khác).
+
+```
+uuidgen
+
+eaa1e19c-a781-41bb-9e09-f1c9e9298d6a
+```
+
+- Tạo file `xml` cho phép Ceph RBD (Rados Block Device) xác thực với libvirt (KVM) thông qua uuid vừa tạo. Đoạn `xml` này có ý nghĩa định nghĩa khi xác thực mà gặp key có `uuid` vừa tạo thì sẽ áp dụng kiểu ceph cho `cinder`.
+
+```
+cat > ceph-secret.xml <<EOF
+<secret ephemeral='no' private='no'>
+<uuid>eaa1e19c-a781-41bb-9e09-f1c9e9298d6a</uuid>
+<usage type='ceph'>
+	<name>client.cinder secret</name>
+</usage>
+</secret>
+EOF
+```
+
+Chạy lệnh
+
+```
+sudo virsh secret-define --file ceph-secret.xml
+```
+
+![](../images/ceph-openstack/Screenshot_20.png)
+
+- Gán giá trị của `client.cinder` cho `uuid`
+
+```
+virsh secret-set-value --secret eaa1e19c-a781-41bb-9e09-f1c9e9298d6a --base64 $(cat /root/client.cinder)
+```
+
+#### Bước 4: Chỉnh sửa, bổ sung cấu hình trên node Controller
+
+```
+vi /etc/cinder/cinder.conf
+```
+
+- Thêm đoạn sau vào `[DEFAULT]`
+
+```
+[DEFAULT]
+notification_driver = messagingv2
+enabled_backends = ceph
+glance_api_version = 2
+backup_driver = cinder.backup.drivers.ceph
+backup_ceph_conf = /etc/ceph/ceph.conf
+backup_ceph_user = cinder-backup
+backup_ceph_chunk_size = 134217728
+backup_ceph_pool = backups
+backup_ceph_stripe_unit = 0
+backup_ceph_stripe_count = 0
+restore_discard_excess_bytes = true
+host=ceph
+```
+
+- Thêm vào cuối file:
+
+```
+[ceph]
+volume_driver = cinder.volume.drivers.rbd.RBDDriver
+volume_backend_name = ceph
+rbd_pool = volumes
+rbd_ceph_conf = /etc/ceph/ceph.conf
+rbd_flatten_volume_from_snapshot = false
+rbd_max_clone_depth = 5
+rbd_store_chunk_size = 4
+rados_connect_timeout = -1
+rbd_user = cinder
+rbd_secret_uuid = eaa1e19c-a781-41bb-9e09-f1c9e9298d6a // secret key vừa tạo ở trên
+report_discard_supported = true
+```
+
+- Enable `cinder-backup` và restart dịch vụ `cinder`
+
+```
+systemctl enable openstack-cinder-backup.service
+systemctl start openstack-cinder-backup.service
+systemctl restart openstack-cinder-backup.service
+systemctl status openstack-cinder-backup.service
+```
+
+- Restart lại service `cinder` trên node Controller
+
+```
+systemctl restart openstack-cinder-api.service openstack-cinder-volume.service openstack-cinder-scheduler.service openstack-cinder-backup.service
+```
+
+- Tạo volume type node Controller
+
+![](../images/ceph-openstack/Screenshot_22.png)
+
+#### Bước 5: Restart lai dich vu nova-compute trên node COM
+
+```
+systemctl restart openstack-nova-compute
+```
+
+#### Bước 6: Tạo volume, VM và kiểm tra
+
+```
+rbd -p volumes ls
+```
+
+#### Bước 7: Tích hợp các node Compute còn lại
+
+Sau khi thao tác cấu hình tích hợp node COM1 thực hiện cấu hình tích hớp các node COM còn lại.
+
+**Trên node CEPH**
+
+- Cấu hình SSH key, chuyển key và nhập password cho Compute
+
+```
+ssh-copy-id root@172.16.3.26
+```
+
+- Chuyển key `cinder` tới node `Compute`
+
+```
+ceph auth get-or-create client.cinder | ssh 172.16.3.26 sudo tee /etc/ceph/ceph.client.cinder.keyring
+ceph auth get-key client.cinder | ssh 172.16.3.26 tee /root/client.cinder.key
+```
+
+**Trên node COM**
+
+Sử dụng key: `eaa1e19c-a781-41bb-9e09-f1c9e9298d6a` đã tạo ở node Compute01
+
+```
+cat > secret.xml <<EOF
+<secret ephemeral='no' private='no'>
+  <uuid>eaa1e19c-a781-41bb-9e09-f1c9e9298d6a</uuid>
+  <usage type='ceph'>
+    <name>client.cinder secret</name>
+  </usage>
+</secret>
+EOF
+```
+
+```
+sudo virsh secret-define --file secret.xml
+```
+
+- Gán giá trị cho file cinder key
+
+```
+virsh secret-set-value --secret eaa1e19c-a781-41bb-9e09-f1c9e9298d6a --base64 $(cat client.cinder.key)
+```
+
+- Restart lại service nova
+
+```
+systemctl restart openstack-nova-compute
+```
+
+## 6. Tích hợp CEPH làm backend cho nova-compute
+
+Mặc định các VM được tạo từ images sẽ lưu file disk ngay chính trên node COM, Việc tích hợp này cho phép file disk này được tạo 1 symlink lưu trữ dưới Ceph.
+
+#### Bước 1: Thực hiện trên node CEPH
+
+- Tạo `keyring` cho `nova`
+
+```
+ceph auth get-or-create client.nova mon 'allow r' osd 'allow class-read object_prefix rbd_children, allow rwx pool=vms, allow rx pool=images' -o /etc/ceph/ceph.client.nova.keyring 
+```
+
+- Copy key `nova` sang các node Compute
+
+![](../images/ceph-openstack/Screenshot_23.png)
+
+#### Bước 2: Thao tác trên node Compute
+
+- Set quyền key trên node Compute
+
+```
+chgrp nova /etc/ceph/ceph.client.nova.keyring
+chmod 0640 /etc/ceph/ceph.client.nova.keyring
+```
+
+- Tạo key UUID. UUID sử dụng chung cho các COM nên chỉ cần tạo lần đầu tiên.
+
+```
+uuidgen
+```
+
+```
+e7e132b3-ce49-4720-bc76-d1fb96efa47b
+```
+
+- Tạo file `xml` cho phép Ceph RBD (Rados Block Device) xác thực với libvirt thông qua uuid vừa tạo
+
+```
+cat << EOF > nova-ceph.xml
+<secret ephemeral="no" private="no">
+  <uuid>e7e132b3-ce49-4720-bc76-d1fb96efa47b</uuid>
+  <usage type="ceph">
+    <name>client.nova secret</name>
+  </usage>
+</secret>
+EOF
+```
+
+Đoạn `xml` này có ý nghĩa định nghĩa khi xác thực mà gặp key có `uuid` là `e7e132b3-ce49-4720-bc76-d1fb96efa47b` thì sẽ áp dụng kiểu `ceph` cho nova.
+
+![](../images/ceph-openstack/Screenshot_24.png)
+
+- Gán giá trị của `client.nova` cho `uuid`
+
+```
+virsh secret-set-value --secret e7e132b3-ce49-4720-bc76-d1fb96efa47b --base64 $(cat /root/client.nova)
+```
+
+#### Bước 4: Chỉnh sửa, bổ sung cấu hình trên node Compute
+
+- Chỉnh sửa nova.conf trên COM `/etc/nova/nova.conf`
+
+```
+[libvirt]
+images_rbd_pool=vms
+images_type=rbd
+rbd_secret_uuid=e7e132b3-ce49-4720-bc76-d1fb96efa47b
+rbd_user=nova
+images_rbd_ceph_conf = /etc/ceph/ceph.conf
+```
+
+- Restart service nova
+
+```
+systemctl restart openstack-nova-compute
+```
+
+#### Bước 5: Tạo VM từ images để kiểm tra
+
+```
+rbd -p vms ls
+rbd -p compute info <name_disk>
+```
+
+#### Bước 6: Tích hợp các node Compute còn lại
+
+Sau khi thao tác cấu hình tích hợp node `compute01` thực hiện cấu hình tích hớp các node compute còn lại.
+
+- Chuyển key `nova` tới node `Compute`
+
+```
+ceph auth get-or-create client.nova | ssh 172.16.3.26 sudo tee /etc/ceph/ceph.client.nova.keyring
+ceph auth get-key client.nova | ssh 172.16.3.26 tee /root/client.nova.key
+```
+
+- Trên node Compute:
+
+Tạo file secret key
+
+```
+cat << EOF > nova-ceph.xml
+<secret ephemeral="no" private="no">
+  <uuid>e7e132b3-ce49-4720-bc76-d1fb96efa47b</uuid>
+  <usage type="ceph">
+    <name>client.nova secret</name>
+  </usage>
+</secret>
+EOF
+```
+
+```
+sudo virsh secret-define --file nova-ceph.xml
+```
+
+- Gán giá trị của `client.nova` cho `uuid`
+
+```
+virsh secret-set-value --secret e7e132b3-ce49-4720-bc76-d1fb96efa47b --base64 $(cat /root/client.nova)
+```
+
+- Chỉnh sửa `nova.conf` trên compute mới `/etc/nova/nova.conf`
+
+```
+[libvirt]
+images_rbd_pool=vms
+images_type=rbd
+rbd_secret_uuid=e7e132b3-ce49-4720-bc76-d1fb96efa47b
+rbd_user=nova
+images_rbd_ceph_conf = /etc/ceph/ceph.conf
+```
+
+- Restart service nova
+
+```
+systemctl restart openstack-nova-compute
+```
