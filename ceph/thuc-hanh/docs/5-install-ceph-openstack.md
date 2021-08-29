@@ -291,7 +291,7 @@ Khởi tạo 1 `uuid` mới cho cinder (UUID sử dụng chung cho các Compute 
 ```
 uuidgen
 
-eaa1e19c-a781-41bb-9e09-f1c9e9298d6a
+19335802-75bc-419a-9880-37d2d1deb0bd
 ```
 
 - Tạo file `xml` cho phép Ceph RBD (Rados Block Device) xác thực với libvirt (KVM) thông qua uuid vừa tạo. Đoạn `xml` này có ý nghĩa định nghĩa khi xác thực mà gặp key có `uuid` vừa tạo thì sẽ áp dụng kiểu ceph cho `cinder`.
@@ -299,7 +299,7 @@ eaa1e19c-a781-41bb-9e09-f1c9e9298d6a
 ```
 cat > ceph-secret.xml <<EOF
 <secret ephemeral='no' private='no'>
-<uuid>eaa1e19c-a781-41bb-9e09-f1c9e9298d6a</uuid>
+<uuid>19335802-75bc-419a-9880-37d2d1deb0bd</uuid>
 <usage type='ceph'>
 	<name>client.cinder secret</name>
 </usage>
@@ -320,6 +320,8 @@ sudo virsh secret-define --file ceph-secret.xml
 ```
 virsh secret-set-value --secret eaa1e19c-a781-41bb-9e09-f1c9e9298d6a --base64 $(cat /root/client.cinder)
 ```
+
+![](../images/ceph-openstack/Screenshot_21.png)
 
 #### Bước 4: Chỉnh sửa, bổ sung cấu hình trên node Controller
 
@@ -358,7 +360,7 @@ rbd_max_clone_depth = 5
 rbd_store_chunk_size = 4
 rados_connect_timeout = -1
 rbd_user = cinder
-rbd_secret_uuid = eaa1e19c-a781-41bb-9e09-f1c9e9298d6a // secret key vừa tạo ở trên
+rbd_secret_uuid = 19335802-75bc-419a-9880-37d2d1deb0bd // secret key vừa tạo ở trên
 report_discard_supported = true
 ```
 
@@ -378,6 +380,11 @@ systemctl restart openstack-cinder-api.service openstack-cinder-volume.service o
 ```
 
 - Tạo volume type node Controller
+
+```
+cinder type-create ceph
+cinder type-key ceph set volume_backend_name=ceph
+```
 
 ![](../images/ceph-openstack/Screenshot_22.png)
 
@@ -414,12 +421,12 @@ ceph auth get-key client.cinder | ssh 172.16.3.26 tee /root/client.cinder.key
 
 **Trên node COM**
 
-Sử dụng key: `eaa1e19c-a781-41bb-9e09-f1c9e9298d6a` đã tạo ở node Compute01
+Sử dụng key: `19335802-75bc-419a-9880-37d2d1deb0bd` đã tạo ở node Compute01
 
 ```
-cat > secret.xml <<EOF
+cat > ceph-secret.xml <<EOF
 <secret ephemeral='no' private='no'>
-  <uuid>eaa1e19c-a781-41bb-9e09-f1c9e9298d6a</uuid>
+  <uuid>19335802-75bc-419a-9880-37d2d1deb0bd</uuid>
   <usage type='ceph'>
     <name>client.cinder secret</name>
   </usage>
@@ -428,13 +435,13 @@ EOF
 ```
 
 ```
-sudo virsh secret-define --file secret.xml
+sudo virsh secret-define --file ceph-secret.xml
 ```
 
 - Gán giá trị cho file cinder key
 
 ```
-virsh secret-set-value --secret eaa1e19c-a781-41bb-9e09-f1c9e9298d6a --base64 $(cat client.cinder.key)
+virsh secret-set-value --secret 19335802-75bc-419a-9880-37d2d1deb0bd --base64 $(cat client.cinder.key)
 ```
 
 - Restart lại service nova
@@ -457,7 +464,7 @@ ceph auth get-or-create client.nova mon 'allow r' osd 'allow class-read object_p
 
 - Copy key `nova` sang các node Compute
 
-![](../images/ceph-openstack/Screenshot_23.png)
+![](../images/ceph-openstack/Screenshot_26.png)
 
 #### Bước 2: Thao tác trên node Compute
 
@@ -475,7 +482,7 @@ uuidgen
 ```
 
 ```
-e7e132b3-ce49-4720-bc76-d1fb96efa47b
+44b453eb-f1ae-45c3-8d1e-30b0cf795c06
 ```
 
 - Tạo file `xml` cho phép Ceph RBD (Rados Block Device) xác thực với libvirt thông qua uuid vừa tạo
@@ -483,7 +490,7 @@ e7e132b3-ce49-4720-bc76-d1fb96efa47b
 ```
 cat << EOF > nova-ceph.xml
 <secret ephemeral="no" private="no">
-  <uuid>e7e132b3-ce49-4720-bc76-d1fb96efa47b</uuid>
+  <uuid>44b453eb-f1ae-45c3-8d1e-30b0cf795c06</uuid>
   <usage type="ceph">
     <name>client.nova secret</name>
   </usage>
@@ -491,14 +498,18 @@ cat << EOF > nova-ceph.xml
 EOF
 ```
 
-Đoạn `xml` này có ý nghĩa định nghĩa khi xác thực mà gặp key có `uuid` là `e7e132b3-ce49-4720-bc76-d1fb96efa47b` thì sẽ áp dụng kiểu `ceph` cho nova.
+```
+sudo virsh secret-define --file nova-ceph.xml
+```
+
+Đoạn `xml` này có ý nghĩa định nghĩa khi xác thực mà gặp key có `uuid` là `44b453eb-f1ae-45c3-8d1e-30b0cf795c06` thì sẽ áp dụng kiểu `ceph` cho nova.
 
 ![](../images/ceph-openstack/Screenshot_24.png)
 
 - Gán giá trị của `client.nova` cho `uuid`
 
 ```
-virsh secret-set-value --secret e7e132b3-ce49-4720-bc76-d1fb96efa47b --base64 $(cat /root/client.nova)
+virsh secret-set-value --secret 44b453eb-f1ae-45c3-8d1e-30b0cf795c06 --base64 $(cat /root/client.nova)
 ```
 
 #### Bước 4: Chỉnh sửa, bổ sung cấu hình trên node Compute
@@ -509,7 +520,7 @@ virsh secret-set-value --secret e7e132b3-ce49-4720-bc76-d1fb96efa47b --base64 $(
 [libvirt]
 images_rbd_pool=vms
 images_type=rbd
-rbd_secret_uuid=e7e132b3-ce49-4720-bc76-d1fb96efa47b
+rbd_secret_uuid=44b453eb-f1ae-45c3-8d1e-30b0cf795c06
 rbd_user=nova
 images_rbd_ceph_conf = /etc/ceph/ceph.conf
 ```
@@ -522,10 +533,20 @@ systemctl restart openstack-nova-compute
 
 #### Bước 5: Tạo VM từ images để kiểm tra
 
+- Tạo VM từ `images` `cirros-ceph` vừa tạo ở trên:
+
+```
+openstack server create Provider_VM01 --flavor m1.nano --image cirros-ceph --nic net-id=de8ba495-8433-4043-8dac-cbffba6eb423 --security-group default
+```
+
+![](../images/ceph-openstack/Screenshot_27.png)
+
 ```
 rbd -p vms ls
-rbd -p compute info <name_disk>
+rbd info vms/<info_disk>
 ```
+
+![](../images/ceph-openstack/Screenshot_28.png)
 
 #### Bước 6: Tích hợp các node Compute còn lại
 
@@ -545,7 +566,7 @@ Tạo file secret key
 ```
 cat << EOF > nova-ceph.xml
 <secret ephemeral="no" private="no">
-  <uuid>e7e132b3-ce49-4720-bc76-d1fb96efa47b</uuid>
+  <uuid>44b453eb-f1ae-45c3-8d1e-30b0cf795c06</uuid>
   <usage type="ceph">
     <name>client.nova secret</name>
   </usage>
@@ -560,7 +581,7 @@ sudo virsh secret-define --file nova-ceph.xml
 - Gán giá trị của `client.nova` cho `uuid`
 
 ```
-virsh secret-set-value --secret e7e132b3-ce49-4720-bc76-d1fb96efa47b --base64 $(cat /root/client.nova)
+virsh secret-set-value --secret 44b453eb-f1ae-45c3-8d1e-30b0cf795c06 --base64 $(cat /root/client.nova)
 ```
 
 - Chỉnh sửa `nova.conf` trên compute mới `/etc/nova/nova.conf`
@@ -569,7 +590,7 @@ virsh secret-set-value --secret e7e132b3-ce49-4720-bc76-d1fb96efa47b --base64 $(
 [libvirt]
 images_rbd_pool=vms
 images_type=rbd
-rbd_secret_uuid=e7e132b3-ce49-4720-bc76-d1fb96efa47b
+rbd_secret_uuid=44b453eb-f1ae-45c3-8d1e-30b0cf795c06
 rbd_user=nova
 images_rbd_ceph_conf = /etc/ceph/ceph.conf
 ```
@@ -579,6 +600,18 @@ images_rbd_ceph_conf = /etc/ceph/ceph.conf
 ```
 systemctl restart openstack-nova-compute
 ```
+
+![](../images/ceph-openstack/Screenshot_29.png)
+
+- Tạo VM sang node `compute02` để test:
+
+```
+nova boot --flavor m1.nano --image 9735ed16-41fb-4041-8872-2a26e828f72d --security-groups default2 VM5 --nic net-id=de8ba495-8433-4043-8dac-cbffba6eb423 --availability-zone nova:compute02
+```
+
+![](../images/ceph-openstack/Screenshot_30.png)
+
+![](../images/ceph-openstack/Screenshot_31.png)
 
 ## Nguồn tham khảo
 
